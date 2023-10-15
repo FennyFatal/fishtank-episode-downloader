@@ -2,6 +2,7 @@
 
 ## Requirements
 - Have node installed.
+- Have a season pass on fishtank.live
 
 ## Running the project
 
