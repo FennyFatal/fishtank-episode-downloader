@@ -10,4 +10,4 @@
 - RUN `npm i` to install dependencies
 - Copy `.env.example` to `.env` and fill in email and password in `.env`
 - RUN `npm start`
-  Episodes will be downloaded to `./episodes`
+- Episodes will be downloaded to `./episodes`
