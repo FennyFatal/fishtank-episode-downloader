@@ -8,5 +8,6 @@
 
 - Clone repo and cd into `fishtank-episode-downloader` folder.
 - RUN `npm i` to install dependencies
-- copy `.env.example` to `.env` and fill in email and password in `.env`
-- RUN `npm start` episodes will be downloaded to `./episodes`
+- Copy `.env.example` to `.env` and fill in email and password in `.env`
+- RUN `npm start`
+  Episodes will be downloaded to `./episodes`
