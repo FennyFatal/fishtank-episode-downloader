@@ -24,5 +24,5 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 
-Cypress.Commands.add('print', (...message) => cy.task('print', message))
-require('cypress-downloadfile/lib/downloadFileCommand')
+Cypress.Commands.add("print", (...message) => cy.task("print", message));
+require("cypress-downloadfile/lib/downloadFileCommand");

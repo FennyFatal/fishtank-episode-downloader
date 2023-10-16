@@ -2,15 +2,15 @@
 require("dotenv").config();
 // get cypress-downloadfile
 const { defineConfig } = require("cypress");
-const { downloadFile } = require('cypress-downloadfile/lib/addPlugin');
+const { downloadFile } = require("cypress-downloadfile/lib/addPlugin");
 
 module.exports = defineConfig({
   e2e: {
     browser: "chrome",
     testIsolation: false,
     setupNodeEvents(on, config) {
-      on('task', {downloadFile});
-      on('task', {
+      on("task", { downloadFile });
+      on("task", {
         print(message) {
           console.log(...message);
           return null;
