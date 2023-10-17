@@ -55,6 +55,7 @@ it("downloaded all fishtank episodes", () => {
   // Download episodes
   cy.get("@episodes").then((episodes) => {
     expect(episodes.length).to.be.greaterThan(0);
+    cy.print(episodes)
     for (let episode of episodes) {
       const filename = `${episode.title}.mp4`;
       cy.print("Downloading", filename);
