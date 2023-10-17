@@ -25,4 +25,14 @@
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 
 Cypress.Commands.add("print", (...message) => cy.task("print", message));
-require("cypress-downloadfile/lib/downloadFileCommand");
+Cypress.Commands.add('downloadFile', function (url, dir, fileName, userAgent) {
+    return cy.getCookies().then(function (cookies) {
+      return cy.task('downloadFile', {
+        url: url,
+        directory: dir,
+        cookies: cookies,
+        fileName: fileName,
+        userAgent: userAgent
+      }, {timeout: 3600000});
+    });
+  });
