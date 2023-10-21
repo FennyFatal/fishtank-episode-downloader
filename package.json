@@ -2,9 +2,10 @@
   "scripts": {
     "start": "cypress run --spec cypress/e2e/fishtank.cy.js"
   },
+  "type": "module",
   "dependencies": {
     "cypress": "^13.3.1",
-    "cypress-downloadfile": "^1.2.3",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2"
   }
 }
