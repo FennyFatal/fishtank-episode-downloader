@@ -42,7 +42,7 @@ it("downloaded all fishtank episodes", () => {
             },
             ...(Array.isArray(x.extras) ? x.extras : [x.extras]).filter(x => x?.jwt).map(
               (x, j) => ({
-                title: `Fishtank.live.S01E${String(i + 1).padStart(2, "0")}.Extras ${j + 1}`,
+                title: `Fishtank.live.S00E${String(i + 1).padStart(2, "0")}.Extras ${j + 1}`,
                 download: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/video?jwt=${x.jwt}`,
                 stream: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/1080p0/index.m3u8?jwt=${x.jwt}`,
               }),
