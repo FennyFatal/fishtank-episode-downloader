@@ -60,6 +60,7 @@ const episodes = await new Promise((resolve, reject) => {
     reject(err);
   });
 });
+console.log(JSON.stringify(episodes, null, 2));
 const episodeLinks = episodes[0].filter((x) => x.jwt)
 .map((x, i) => {
   const [eNum, title] = x.title.split(' | ');
@@ -86,7 +87,7 @@ for (let episode of episodeLinks) {
         url: episode.download,
         directory: "episodes",
         cookies: undefined,
-        fileName: filename,
+        fileName: filename.replace(/[^a-z 0-9.]/gi, ''),
         userAgent: cypressConfig.e2e.userAgent
     });
 }
