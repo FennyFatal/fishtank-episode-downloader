@@ -63,16 +63,17 @@ const episodes = await new Promise((resolve, reject) => {
 console.log(JSON.stringify(episodes, null, 2));
 const episodeLinks = episodes[0].filter((x) => x.jwt)
 .map((x, i) => {
-  const [eNum, title] = x.title.split(' | ');
+  const { ep, title } = {...[...((x.title.matchAll(/E?(?<ep>[0-9]+) -? ?(?<title>.+)/g)) ?? [])][0].groups} ?? x;
+  const eNum = ep ? 'E' + ep.padStart(2, '0') + '.' : ''
   return [
     {
-      title: `Fishtank.live.S01${eNum}.${title}`,
+      title: `Fishtank.live.S01${eNum}${title}`,
       download: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/video?jwt=${x.jwt}`,
       stream: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/1080p0/index.m3u8?jwt=${x.jwt}`,
     },
     ...(Array.isArray(x.extras) ? x.extras : [x.extras]).filter(x => x?.jwt).map(
       (x, j) => ({
-        title: `Fishtank.live.S00${eNum}.Extras`,
+        title: `Fishtank.live.S00${eNum}Extras`,
         download: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/video?jwt=${x.jwt}`,
         stream: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/1080p0/index.m3u8?jwt=${x.jwt}`,
       }),
