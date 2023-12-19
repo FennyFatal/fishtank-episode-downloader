@@ -1,9 +1,42 @@
 import cypressConfig, { downloadFile } from "./cypress.config.mjs";
+import express from 'express';
 import WebSocket from 'ws'
 const {
     CYPRESS_USERNAME,
     CYPRESS_PASSWORD
 } = cypressConfig.e2e.env;
+
+const toLinks = (html) => {
+  return html.filter((x) => x.jwt)
+  .map((x, i) => {
+    const isEpisode = !!x.title
+    const { ep, title } = {...[...(((x.title ?? x.name)?.matchAll(/E?(?<ep>[0-9]+) -? ?(?<title>.+)/g)) ?? [])][0]?.groups ?? {title: x.name, ep: 'LIVE '}};
+    const eNum = ep ? 'E' + ep.padStart(2, '0') + '.' : ''
+    if (isEpisode) return [
+      {
+        title: `Fishtank.live.S01${eNum}${title}`,
+        download: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/video?jwt=${x.jwt}`,
+        stream: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/1080p0/index.m3u8?jwt=${x.jwt}`,
+      },
+      ...(Array.isArray(x.extras) ? x.extras : [x.extras]).filter(x => x?.jwt).map(
+        (x, j) => ({
+          title: `Fishtank.live.S00${eNum}Extras`,
+          download: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/video?jwt=${x.jwt}`,
+          stream: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/1080p0/index.m3u8?jwt=${x.jwt}`,
+        }),
+      ),
+    ]
+    // It's a live episode
+    return [
+      {
+        id: x.id,
+        title: `${title}`,
+        stream: `https://livepeercdn.studio/hls/${x.playbackId}/index.m3u8?jwt=${x.jwt}`
+      },
+    ]
+  })
+  .flat();
+}
 
 const fireToken = await fetch("https://wcsaaupukpdmqdjcgaoo.supabase.co/auth/v1/token?grant_type=password", {
   "headers": {
@@ -28,67 +61,87 @@ const fireToken = await fetch("https://wcsaaupukpdmqdjcgaoo.supabase.co/auth/v1/
 
 const [_tokenName, ...bits] = fireToken.headers.get('set-cookie').split(';')[0].split('=')
 const firebaseToken = bits.join('=');
-const episodes = await new Promise((resolve, reject) => {
-  const ws = new WebSocket('wss://ws.fishtank.live/socket.io/?EIO=4&transport=websocket', {
-    "headers": {
-      "accept-language": "en-US,en;q=0.9",
-      "cache-control": "no-cache",
-      "pragma": "no-cache",
-      "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
-      "sec-websocket-key": "Kv0WU9v2W7A9/SjeLNy4/A==",
-      "sec-websocket-version": "13",
-      'Origin': 'https://www.fishtank.live'
-    }
-  });
 
-  ws.on('message', function incoming(data) {
-    if (data.toString().startsWith('0')) {
-      ws.send('40'+JSON.stringify({token: firebaseToken}), function reject(err) {
-        if (err) console.log(err);
-      });
-    } else if (data.toString().startsWith('40')) {
-      ws.send('421["episodes:get"]', function ack(err) {
-        if (err) reject(err);
-      });
-    } else if (data.toString().startsWith('431')) {
-      const json = data.toString().replace(/^431/, '')
-      ws.close();
-      resolve(JSON.parse(json))
-    }
+let links = [];
+let ws = null;
+
+const getTheThings = async () => {
+  const episodes = await new Promise((resolve, reject) => {
+    ws = new WebSocket('wss://ws.fishtank.live/socket.io/?EIO=4&transport=websocket', {
+      "headers": {
+        "accept-language": "en-US,en;q=0.9",
+        "cache-control": "no-cache",
+        "pragma": "no-cache",
+        "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+        "sec-websocket-key": "Kv0WU9v2W7A9/SjeLNy4/A==",
+        "sec-websocket-version": "13",
+        'Origin': 'https://www.fishtank.live'
+      }
+    });
+
+    ws.on('message', function incoming(data) {
+      if (data.toString().startsWith('0')) {
+        ws.send('40'+JSON.stringify({token: firebaseToken}), function reject(err) {
+          if (err) console.log(err);
+        });
+      } else if (data.toString().startsWith('40')) {
+        ws.send('42["live-stream:get"]', function ack(err) {
+          if (err) reject(err);
+        });
+      } else if (data.toString().startsWith('433')) {
+        const json = data.toString().replace(/^433/, '')
+        ws.close();
+        resolve(JSON.parse(json))
+      } else if (data.toString().startsWith('42["chat:message",')) {
+      } else if (data.toString() === ('2')) {
+        ws.send('3', function ack(err) {
+          if (err) reject(err);
+        });
+      } else if (data.toString().startsWith('42["live-stream:get",')) {
+        const json = data.toString().replace(/^42/, '')
+        const theobj = JSON.parse(json)[1];
+        console.log(theobj);
+        links = toLinks(theobj);
+      } else {
+        console.log(data.toString());
+      }
+    });
+    ws.on('error', function error(err) {
+      reject(err);
+    });
   });
-  ws.on('error', function error(err) {
-    reject(err);
-  });
-});
-console.log(JSON.stringify(episodes, null, 2));
-const episodeLinks = episodes[0].filter((x) => x.jwt)
-.map((x, i) => {
-  const { ep, title } = {...[...((x.title.matchAll(/E?(?<ep>[0-9]+) -? ?(?<title>.+)/g)) ?? [])][0].groups} ?? x;
-  const eNum = ep ? 'E' + ep.padStart(2, '0') + '.' : ''
-  return [
-    {
-      title: `Fishtank.live.S01${eNum}${title}`,
-      download: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/video?jwt=${x.jwt}`,
-      stream: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/1080p0/index.m3u8?jwt=${x.jwt}`,
-    },
-    ...(Array.isArray(x.extras) ? x.extras : [x.extras]).filter(x => x?.jwt).map(
-      (x, j) => ({
-        title: `Fishtank.live.S00${eNum}Extras`,
-        download: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/video?jwt=${x.jwt}`,
-        stream: `https://playback.livepeer.studio/asset/hls/${x.playbackId}/1080p0/index.m3u8?jwt=${x.jwt}`,
-      }),
-    ),
-  ]
-})
-.flat();
-for (let episode of episodeLinks) {
+  console.log(JSON.stringify(episodes, null, 2));
+  const episodeLinks = toLinks(episodes[0]);
+  for (let episode of episodeLinks) {
     const filename = `${episode.title}.mp4`;
     console.log("Downloading", filename);
     await downloadFile({
-        url: episode.download,
-        directory: "episodes",
-        cookies: undefined,
-        fileName: filename.replace(/[^a-z 0-9.]/gi, ''),
-        userAgent: cypressConfig.e2e.userAgent
+      url: episode.download,
+      directory: "episodes",
+      cookies: undefined,
+      fileName: filename.replace(/[^a-z 0-9.]/gi, ''),
+      userAgent: cypressConfig.e2e.userAgent
     });
+  }
 }
+
+getTheThings();
+
+const app = express();
+app.use('/api/live-streams', (req, res) => {
+  res.json(links);
+});
+
+app.use('/api/stream/:stream', (req, res) => {
+  const stream = req.params.episode;
+  const link = links.find(x => x.id === stream);
+  if (!link) {
+    res.status(404).json({error: 'Stream not found'});
+    return;
+  }
+  res.json(link);
+});
+
+app.listen(3000, () => {
+  console.log('listening on http://localhost:3000/');
+});
