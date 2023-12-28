@@ -133,13 +133,59 @@ app.use('/api/live-streams', (req, res) => {
 });
 
 app.use('/api/stream/:stream', (req, res) => {
-  const stream = req.params.episode;
+  const stream = req.params.stream;
   const link = links.find(x => x.id === stream);
   if (!link) {
     res.status(404).json({error: 'Stream not found'});
     return;
   }
-  res.json(link);
+  res.redirect(307, link.stream);
+  // res.json(link);
+});
+
+app.use('/api/proxystream/:stream', async (req, res) => {
+  const stream = req.params.stream;
+  const link = links.find(x => x.id === stream);
+  if (!link) {
+    res.status(404).json({error: 'Stream not found'});
+    return;
+  }
+  const jwt = /jwt=(.+)/.exec(link.stream)[1]
+  res.set('Content-Type', 'application/x-mpegURL')
+  // retry this as many as three times
+  let body = null;
+  let basePath = null;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const request = await fetch(link.stream);
+      basePath = /(https:\/\/([^\/?]+[\/]){3})/.exec(request.url)[1]
+      body = await request.text();
+      if (
+        body && body.length > 0
+        && body.includes('#EXTM3U')
+        && body.includes('#EXT-X-STREAM-INF')
+        && request.status === 200
+      )
+        break;
+    } catch (e) {
+      console.log(e);
+    }
+  }
+  // streamcatcher
+  const newBody = body
+  .replaceAll(/\n([0-9]_.+)\r/g, '\n' + basePath + `$1&jwt=${jwt}\r`).replace(/\/r\/n$/, '');
+  res.send(newBody);
+});
+
+app.use('/api/streamId/:streamId', (req, res) => {
+  const streamId = req.params.streamId;
+  const link = links[parseInt(streamId ?? 99)];
+  if (!link) {
+    res.status(404).json({error: 'Stream not found'});
+    return;
+  }
+  res.redirect(307, link.stream);
+  // res.json(link);
 });
 
 app.listen(3000, () => {
