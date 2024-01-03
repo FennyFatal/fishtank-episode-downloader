@@ -31,7 +31,8 @@ const toLinks = (html) => {
       {
         id: x.id,
         title: `${title}`,
-        stream: `https://livepeercdn.studio/hls/${x.playbackId}/index.m3u8?jwt=${x.jwt}`
+        stream: `https://livepeercdn.studio/hls/${x.playbackId}/index.m3u8?jwt=${x.jwt}`,
+        webm: `https://sea-prod-catalyst-0.lp-playback.studio/video+${x.playbackId}.webm?jwt=${x.jwt}`,
       },
     ]
   })
@@ -143,6 +144,27 @@ app.use('/api/stream/:stream', (req, res) => {
   // res.json(link);
 });
 
+app.use('/api/webm/:stream', (req, res) => {
+  const stream = req.params.stream;
+  const link = links.find(x => x.id === stream);
+  if (!link) {
+    res.status(404).json({error: 'Stream not found'});
+    return;
+  }
+  res.redirect(307, link.webm);
+  // res.json(link);
+});
+app.use('/api/sdp/:stream', (req, res) => {
+  const stream = req.params.stream;
+  const link = links.find(x => x.id === stream);
+  if (!link) {
+    res.status(404).json({error: 'Stream not found'});
+    return;
+  }
+  res.redirect(307, link.webm.replace(/\.webm/, '.sdp'));
+  // res.json(link);
+});
+
 app.use('/api/proxystream/:stream', async (req, res) => {
   const stream = req.params.stream;
   const link = links.find(x => x.id === stream);
@@ -173,7 +195,44 @@ app.use('/api/proxystream/:stream', async (req, res) => {
   }
   // streamcatcher
   const newBody = body
-  .replaceAll(/\n([0-9]_.+)\r/g, '\n' + basePath + `$1&jwt=${jwt}\r`).replace(/\/r\/n$/, '');
+  .replaceAll(/\n([0-9]_.+)\r/g, '\n' + basePath + `$1&jwt=${jwt}\r`).replace(/\/r\/n$/, '')
+  res.send(newBody);
+});
+
+app.use('/api/stream640/:stream', async (req, res) => {
+  const stream = req.params.stream;
+  const link = links.find(x => x.id === stream);
+  if (!link) {
+    res.status(404).json({error: 'Stream not found'});
+    return;
+  }
+  const jwt = /jwt=(.+)/.exec(link.stream)[1]
+  res.set('Content-Type', 'application/x-mpegURL')
+  // retry this as many as three times
+  let body = null;
+  let basePath = null;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const request = await fetch(link.stream);
+      basePath = /(https:\/\/([^\/?]+[\/]){3})/.exec(request.url)[1]
+      body = await request.text();
+      if (
+        body && body.length > 0
+        && body.includes('#EXTM3U')
+        && body.includes('#EXT-X-STREAM-INF')
+        && request.status === 200
+      )
+        break;
+    } catch (e) {
+      console.log(e);
+    }
+  }
+  // streamcatcher
+  const newBody = body
+  .replaceAll(
+    /^(?<header>#[^\r\n]+\r?\n)(?<teneighty>(?:(?:#[^\r\n]+\r?\n){1}[^\r\n]+\r?\n?))(?<seventwenty>(?:(?:#[^\r\n]+\r?\n){1}[^\r\n]+\r?\n?))(?<sixfourty>(?:(?:#[^\r\n]+\r?\n){1}[^\r\n]+\r?\n?))/g,
+    '$1$4'
+  ).replaceAll(/\n([0-9]_.+)\r/g, '\n' + basePath + `$1&jwt=${jwt}\r`).replace(/\/r\/n$/, '');
   res.send(newBody);
 });
 
